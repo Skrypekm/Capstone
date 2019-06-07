@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="Description" content="Find buisnesses within a certain radius of a given location">
+        <meta name="author" content="Mike Skrypek">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Mike Skrypek Capstone</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+        <style>
+            #map {
+                height: 500px;
+                width: 100%;
+            }
+
+            html, body {
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                background-color: #ceaf97
+            }
+            #txtError {
+                color: red;
+            }
+            .title {
+                font-family: 'Oswald', sans-serif;
+                font-size: 50px;
+            }
+            .end{
+                background-color: black;
+                margin-top: 20px;
+                font-size: 30px;
+                color: gray;
+                font-family: 'Oswald', sans-serif;
+                text-align: right;
+                padding-right: 20px;
+            }
+            .customButton {
+                background-color: #333333;
+                border-radius: 3px;
+                border: solid 1px #333333;
+                color: white;
+            }
+            .customButton:hover {
+                background-color: #515151;
+            }
+        </style>
+        <link href="https://fonts.googleapis.com/css?family=Oswald" rel="stylesheet"> 
+    </head>
+    <body style="height = 100%;">
+        <div class="container-fluid text-center" style="background-color: gray; padding-bottom: 15px; padding-top: 15px;">
+            <h1 class="title">Find businesses in your area</h1>
+        </div>
+        <div class="container" style="background-color: white; height: 100%;">
+            <div class="row">
+                <div class="col" style="border-right: solid 3px black; height: 100%; padding-top: 20px;">
+                    <div id="floatingPanel" class="form-group">
+                        Location: 
+                        <input id="address" class="form-control-sm" type="textbox" placeholder="Enter an address"> or
+                        <input id="currentLocation" class="customButton" type="button" value="Use Current Location">
+                        <br />
+                        Radius: <input id="searchRadius" class="form-control-sm" type="textbox" placeholder="Enter radius">
+                        <input id="btnMeasurement" class="customButton" type="button" value="mi" onClick="btnMeasurementClick()">
+                        <label id="radiusError"></label>
+                        <br />
+                        <button id="btnBuisSearch" class="customButton" type="button">Search</button>
+                        <label id="txtError"></label>
+                    </div>
+                    <div id="map"></div>
+                </div>
+                <div class="col" style="height: 100%; padding-top: 20px;">
+                    <div id="pNames"></div>
+                </div>
+            </div>
+        </div>
+        <div class="end">created by mike skrypek</div>
+
+        <!-- 
+            -------------------------------------------------------------------------------
+
+                                        Google maps setup script 
+
+            -------------------------------------------------------------------------------
+        -->
+        <script>
+            //--------------------------------------------------------------
+            //
+            //			          Set up the google map
+            //
+            //--------------------------------------------------------------
+            var pos;                    //holds the current position to search from
+            var map;                    //holds the google map object
+            var currentPositionMarker;  //holds the marker object of pos
+            var measurement = "miles";  //determines unit of measuremnt
+            var markerList = [];        //holds list of markers for buisnesses
+            var resultsList = [];       //holds results object of search
+            var currentIndex;           //holds index used to display info on right side
+            var useCurrentPosition = false; //determines if the user inputs an address
+            var pageSize = 6;
+
+            function initMap() {
+                var DefaultLocation = {lat: 37.697948, lng: -97.314835}; //center map over Wichita, kansas USA
+                currentPositionMarker = new google.maps.Marker({position: DefaultLocation, title: "Current Location"});
+                
+                //create the google maps object
+                map = new google.maps.Map(document.getElementById('map'), {
+                    center: DefaultLocation,
+                    zoom: 4
+                });
+                
+                document.getElementById('address').addEventListener('click', function() {
+                    useCurrentPosition = false;
+                });
+
+                //Search for the users location
+                document.getElementById('currentLocation').addEventListener('click', function(){
+                    useCurrentPosition = true;
+                    var infoWindow = new google.maps.InfoWindow;
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(function(position) {
+                            pos = {
+                                lat: position.coords.latitude,
+                                lng: position.coords.longitude
+                            };
+
+                            map.setCenter(pos);
+                            map.setZoom(15);
+                            document.getElementById('address').value = pos.lat + ", " + pos.lng;
+                            //update the marker
+                            currentPositionMarker.setMap(null);
+                            currentPositionMarker = null;
+                            currentPositionMarker = new google.maps.Marker({position: pos, map: map, title: "Current Location"});
+                        }, function() {
+                        handleLocationError(true, infoWindow, map.getCenter());
+                    });
+                    } else {
+                        // Browser doesn't support Geolocation
+                        handleLocationError(false, infoWindow, map.getCenter());
+                    }
+                });		
+
+                //Search for local buisnesses
+                document.getElementById('btnBuisSearch').addEventListener('click', function(){
+                    //check to see if the user has entered a number
+                    document.getElementById('btnBuisSearch').disabled = true;
+                    var testValue = document.getElementById('searchRadius').value
+                    if ( testValue == '' || isNaN(testValue)) {
+                        document.getElementById('txtError').innerHTML = "Please enter a search Radius";
+                        document.getElementById('btnBuisSearch').disabled = false;
+                        return;
+                    }
+                    
+                    if (useCurrentPosition == false) {
+                        if (document.getElementById('address').value == "") {
+                            document.getElementById("txtError").innerHTML = "Error position not set";
+                            document.getElementById('btnBuisSearch').disabled = false;
+                            return;
+                        }
+                        
+                        var geocoder = new google.maps.Geocoder();
+                        geocodeAddress(geocoder, map);
+                    } else {
+                        if (typeof pos == 'undefined') {
+                            document.getElementById("txtError").innerHTML = "Error position not set";
+                            document.getElementById('btnBuisSearch').disabled = false;
+                            return;
+                        }
+                        searchHelper();
+                    }
+                });
+            }
+            
+            function searchHelper() {
+                document.getElementById('btnBuisSearch').innerHTML = "<span class='spinner-grow spinner-grow-sm'></span>Loading...";
+                document.getElementById("txtError").innerHTML = "";
+                document.getElementById("pNames").innerHTML = "Searching...";
+
+                if (document.getElementById("btnMeasurement").value == "mi") {
+                    var searchRadius = document.getElementById('searchRadius').value * 1609.34;
+                } else {
+                    var searchRadius = document.getElementById('searchRadius').value * 1000;
+                }
+                var searchLocation = new google.maps.LatLng(pos.lat, pos.lng);
+                var request = {
+                    location: searchLocation,
+                    radius: searchRadius,
+                    type: ['store']
+                };
+
+                //delete old search markers
+                if (markerList && markerList !== "null" && markerList !== "undefined") {
+                    for (var i = markerList.length; i > 0; i--) {
+                        markerList[i-1].setMap(null);
+                        markerList.pop();
+                    }  
+                }
+                //delete results of old search results
+                if (resultsList && resultsList !== "null" && resultsList !== "undefined") {
+                    for (var i = resultsList.length; i > 0; i--) {
+                        resultsList.pop();
+                    }  
+                }
+                
+                service = new google.maps.places.PlacesService(map);
+                service.nearbySearch(request, mapRequest); 
+            } 
+
+            //--------------------------------------------------------------
+            //			call google api to get local buisnesses
+            //--------------------------------------------------------------
+            function mapRequest(results, status, page) {
+                if (status == google.maps.places.PlacesServiceStatus.OK) {                    
+                    var image = 'https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png';
+
+                    for (var i = 0; i < results.length; i++) {
+                        //add the marker to the map
+                        var marker = new google.maps.Marker({
+                            map: map,
+                            position: results[i].geometry.location,
+                            icon: image,
+                            title: results[i].name
+                        });
+                        
+                        //store information returned
+                        markerList.push(marker);
+                        resultsList.push(results[i]);
+                    }
+                    
+                    //determine if there are more than 20 results
+                    if (page.hasNextPage) {
+                        page.nextPage();
+                    } else {
+                        currentIndex = 0;
+                        displayResults();
+                        document.getElementById('btnBuisSearch').disabled = false;
+                        document.getElementById('btnBuisSearch').innerHTML = "Search";
+                    }
+                } else {
+                    document.getElementById("pNames").innerHTML = "No results found. Try increasing search radius.";
+                    document.getElementById('btnBuisSearch').disabled = false;
+                    document.getElementById('btnBuisSearch').innerHTML = "Search";
+                }
+            }
+            
+            function displayResults() {
+                document.getElementById("pNames").innerHTML = "";
+                var dispContainer = document.getElementById("pNames");
+                var counter = 0;
+                var offset = 1;
+                var times = resultsList.length - currentIndex;
+                if (times > pageSize) {
+                    times = pageSize;
+                }
+                
+                //display results on rhs for the current page
+                while (counter < times) {
+                    if (offset == 1) {
+                        if (resultsList[currentIndex + counter].rating == null) {
+                            dispContainer.innerHTML += "<p><span style='border-left: 10px solid black; padding-left: 5px; font-weight: bold; font-size: 23px;'>" + resultsList[currentIndex + counter].name + "</span><br /> Address: " + resultsList[currentIndex + counter].vicinity + "<br /></p>";
+                        } else {
+                            dispContainer.innerHTML += "<p><span style='border-left: 10px solid black; padding-left: 5px; font-weight: bold; font-size: 23px;'>" + resultsList[currentIndex + counter].name + "</span><br /> Address: " + resultsList[currentIndex + counter].vicinity + "<br /> Rating: " + resultsList[currentIndex + counter].rating + "/5 <br /></p>";
+                        }
+                        offset = 0;
+                    } else {
+                        if (resultsList[currentIndex + counter].rating == null) {
+                            dispContainer.innerHTML += "<p style='background-color: lightgray;'><span style='border-left: 10px solid black; padding-left: 5px; font-weight: bold; font-size: 23px;'>" + resultsList[currentIndex + counter].name + "</span><br /> Address: " + resultsList[currentIndex + counter].vicinity + "<br /></p>";
+                        } else {
+                            dispContainer.innerHTML += "<p style='background-color: lightgray;'><span style='border-left: 10px solid black; padding-left: 5px; font-weight: bold; font-size: 23px;'>" + resultsList[currentIndex + counter].name + "</span><br /> Address: " + resultsList[currentIndex + counter].vicinity + "<br /> Rating: " + resultsList[currentIndex + counter].rating + "/5 <br /></p>";
+                        }
+                        offset = 1;
+                    }
+                    counter++;
+                }
+                
+                //create next and previous buttons
+                if (resultsList[currentIndex - pageSize] && resultsList[currentIndex - pageSize] !== "null" && resultsList[currentIndex - pageSize] !== "undefined") {
+                    dispContainer.innerHTML += "<input id='btnPrevious' type='button' class='customButton' style='margin-right: 5px;' value='Previous' onClick='PreviousClick()'>"
+                }
+                if (resultsList[currentIndex + pageSize] && resultsList[currentIndex + pageSize] !== "null" && resultsList[currentIndex + pageSize] !== "undefined") {
+                    dispContainer.innerHTML += "<input id='btnNext' type='button' class='customButton' value='next' onClick='nextClick()'>"
+                }
+            }
+            
+            function PreviousClick() {
+                currentIndex -= pageSize;
+                displayResults();
+            }
+            
+            function nextClick() {
+                currentIndex += pageSize;
+                displayResults();
+            }
+
+            //--------------------------------------------------------------
+            //			Let the user search for a location
+            //--------------------------------------------------------------
+            function geocodeAddress(geocoder, Map) {
+                var address = document.getElementById('address').value;
+                geocoder.geocode({'address': address}, function(results, status) {
+                    if (status === 'OK') {
+                        //update map location
+                        Map.setCenter(results[0].geometry.location);
+                        Map.setZoom(15);
+
+                        //update marker position
+                        currentPositionMarker.setMap(null);
+                        currentPositionMarker = null;
+                        currentPositionMarker = new google.maps.Marker({
+                            map: Map,
+                            position: results[0].geometry.location
+                        });
+
+                        //update position for search
+                        pos = {
+                                lat: results[0].geometry.location.lat(),
+                                lng: results[0].geometry.location.lng()
+                        };
+                        searchHelper();
+                    } else if (status === 'ZERO_RESULTS') {
+                        document.getElementById("txtError").innerHTML = "Error: Invalid location.";
+                        
+                    } else {
+                        alert('Geocode was not successful for the following reason: ' + status);
+                    }
+                    document.getElementById('btnBuisSearch').disabled = false;
+                });
+            }
+
+            //--------------------------------------------------------------
+            //			handle error on geolocation
+            //--------------------------------------------------------------
+            function handleLocationError(browserHasGeolocation, infoWindow, pos) {
+                infoWindow.setPosition(pos);
+                infoWindow.setContent(browserHasGeolocation ?
+                                      'Error: The Geolocation service failed.' :
+                                      'Error: Your browser doesn\'t support geolocation.');
+                infoWindow.open(map);
+            }
+
+            //--------------------------------------------------------------
+            //			change unit of measurement
+            //--------------------------------------------------------------
+            function btnMeasurementClick() {
+                if (document.getElementById("btnMeasurement").value == "mi") {
+                    document.getElementById("btnMeasurement").value = "km";
+                    measurement = "kilometers";
+                } else {
+                    document.getElementById("btnMeasurement").value = "mi"
+                    measurement = "miles";
+                }
+            }
+        </script>
+        <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_HERE&libraries=places&callback=initMap"
+        async defer></script>
+    </body>
+</html>
