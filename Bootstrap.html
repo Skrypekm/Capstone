@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html  lang="en">
+  <head>
+    <title>Bootstrap Practice</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8">
+     <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <style>
+        
+    </style>
+  </head>
+  <body>
+      hello
+      <div class="row">
+          <div class="col-sm-4"><h1>display 1</h1></div>
+          <div class="col-sm-8" style="background-color: red">asdf</div>
+      </div>
+      <small>hello world</small><mark>this is important</mark>
+      <dl>
+          <dt>this is a list</dt>
+          <dd>- hello</dd>
+          <dt>this is a second point</dt>
+          <dd>- and here is a thing</dd>
+          <dd>- and here is a thing</dd>
+      </dl>
+      <div class="container">
+          <h1>keybord inputs</h1>
+          <p class="lead text-warning bg-primary">this is a keyboard input <kbd>ctrl+p</kbd> to open</p>
+          <p class="text-center">hello</p>
+          <kbd>ctrl + p</kbd>
+      </div>
+      <table class="table-striped table table-bordered table-hover table-dark table-sm">
+          <thead class="thead-light">
+              <tr>
+                  <th>Firstname</th>
+                  <th>Lastname</th>
+                  <th>Email</th>
+              </tr>
+          </thead>
+          <tbody>
+              <tr>
+                  <td>John</td>
+                  <td>Snow</td>
+                  <td>John@snow.com</td>
+              </tr>
+              <tr>
+                  <td>John</td>
+                  <td>Snow</td>
+                  <td>John@snow.com</td>
+              </tr>
+              <tr>
+                  <td>John</td>
+                  <td>Snow</td>
+                  <td>John@snow.com</td>
+              </tr>
+          </tbody>
+      </table>
+      <div class="container">
+          <div class="jumbotron">
+              <h1 class="text-center text-capitalize">this is important text</h1>
+          </div>
+          
+          <div class="alert alert-danger alert-dismissible">
+              <button type="button" class="close" data-dismiss="alert">&times;</button>
+              <h1>help me</h1>
+          </div>
+      </div>
+      <button type="button" class="btn btn-info btn-lg btn-block"><span class="spinner-border"></span></button>
+      <button id="btnTest" type="button" class="btn btn-primary">push me</button>
+      <script type="text/javascript">
+        document.getElementById("btnTest").addEventListener("click", function() {
+            var butt = document.getElementById("btnTest");
+            butt.disabled = true;
+            butt.innerHTML = "<span class='spinner-border'></span>Loading...";
+        });
+      </script>
+      <div class="btn-group">
+          <button type="button" class="btn btn-primary">Apple</button>
+          <button type="button" class="btn btn-primary">Apple</button>
+          <button type="button" class="btn btn-primary">Apple</button>
+      </div>
+  </body>
+</html>
